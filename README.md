@@ -1,3 +1,35 @@
+
+<div align="right">
+  <details>
+    <summary >🌐 Language</summary>
+    <div>
+      <div align="center">
+        <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=en">English</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=zh-CN">简体中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=zh-TW">繁體中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=ja">日本語</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=ko">한국어</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=hi">हिन्दी</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=th">ไทย</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=fr">Français</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=de">Deutsch</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=es">Español</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=it">Italiano</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=ru">Русский</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=pt">Português</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=nl">Nederlands</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=pl">Polski</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=ar">العربية</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=fa">فارسی</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=tr">Türkçe</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=vi">Tiếng Việt</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=id">Bahasa Indonesia</a>
+        | <a href="https://openaitx.github.io/view.html?user=BlackHatDevX&project=onionhoster&lang=as">অসমীয়া</
+      </div>
+    </div>
+  </details>
+</div>
+
 # 🌐 OnionHoster v2.2
 
 > **The Ultimate Tor Hidden Service Hosting Tool** - Deploy your web projects to the dark web in minutes!
