@@ -5,7 +5,7 @@
 
 </details>
 
-# OnionHoster v2.2
+# OnionHoster v2.5
 
 > **The Ultimate Tor Hidden Service Hosting Tool** - Deploy your web projects to the dark web in minutes!
 > 

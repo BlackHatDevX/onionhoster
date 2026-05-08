@@ -2,7 +2,7 @@
 
 # OnionHoster - Tor Hidden Service Hosting Script
 # Works for any project (Next.js, Flask, static, etc.)
-# Version: 2.2
+# Version: 2.5
 # Author: BlackHatDevX
 # GitHub: https://github.com/BlackHatDevX/onionhoster
 
@@ -19,7 +19,7 @@ SERVICE_DIR="/var/lib/tor"
 SERVICE_NAME="my_hidden_service"
 SERVICE_PATH="$SERVICE_DIR/$SERVICE_NAME"
 BACKUP_DIR="$HOME/onion_backups"
-SCRIPT_VERSION="2.2"
+SCRIPT_VERSION="2.5"
 TOR_CONFIG="/etc/tor/torrc"
 GITHUB_REPO="https://github.com/BlackHatDevX/onionhoster"
 GITHUB_RELEASES="https://github.com/BlackHatDevX/onionhoster/releases/tag/"
@@ -59,7 +59,7 @@ check_root() {
 
 install_dependencies() {
     print_info "Detecting operating system..."
-    
+
     if command -v apt-get &> /dev/null; then
         print_info "Detected Debian/Ubuntu system"
         apt-get update -y
@@ -81,18 +81,37 @@ install_dependencies() {
         WEB_SERVER="apache"
     elif command -v brew &> /dev/null; then
         print_info "Detected macOS system"
-        brew install tor unzip zip curl wget httpd
-        TOR_USER="$(whoami)"
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        print_info "Homebrew prefix: $BREW_PREFIX"
+
+        if [[ $EUID -eq 0 ]]; then
+            print_info "Running as root - using Homebrew as regular user"
+            sudo -u "$SUDO_USER" brew install tor unzip zip curl wget httpd 2>/dev/null || {
+                print_warning "Could not use sudo for brew, trying direct install..."
+                brew install tor unzip zip curl wget httpd 2>/dev/null || true
+            }
+        else
+            brew install tor unzip zip curl wget httpd
+        fi
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER="$(whoami)"
+        fi
         TOR_GROUP="staff"
-        TOR_CONFIG="/usr/local/etc/tor/torrc"
+        TOR_CONFIG="$BREW_PREFIX/etc/tor/torrc"
+        SERVICE_DIR="$BREW_PREFIX/var/lib/tor"
+        SERVICE_PATH="$SERVICE_DIR/$SERVICE_NAME"
         WEB_SERVER="httpd"
     else
         print_error "Unsupported operating system. Please install Tor and Apache manually."
         exit 1
     fi
-    
+
     mkdir -p "$BACKUP_DIR"
-    
+
     print_status "Dependencies installed successfully"
 }
 
@@ -101,17 +120,97 @@ check_tor_service() {
         print_error "Tor is not installed. Installing dependencies..."
         install_dependencies
     fi
-    
-    if ! systemctl is-active --quiet tor 2>/dev/null; then
-        print_warning "Tor service is not running. Starting it..."
-        systemctl start tor 2>/dev/null || {
-            print_error "Failed to start Tor service. Please check your installation."
-            exit 1
-        }
+
+    if command -v systemctl &> /dev/null; then
+        if ! systemctl is-active --quiet tor 2>/dev/null; then
+            print_warning "Tor service is not running. Starting it..."
+            systemctl start tor 2>/dev/null || {
+                print_error "Failed to start Tor service. Please check your installation."
+                exit 1
+            }
+        fi
+        systemctl enable tor 2>/dev/null
+    elif command -v brew &> /dev/null; then
+        print_info "Detected macOS - checking Tor process..."
+
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+
+        TOR_CONFIG="$BREW_PREFIX/etc/tor/torrc"
+        TOR_DATA="$BREW_PREFIX/var/lib/tor"
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER=$(whoami)
+        fi
+
+        print_info "Cleaning up old Tor configuration..."
+        if [ -f "$TOR_CONFIG" ]; then
+            sed -i '/^HiddenServiceDir\|^HiddenServicePort/d' "$TOR_CONFIG" 2>/dev/null || true
+        fi
+        rm -rf "$TOR_DATA/my_hidden_service" 2>/dev/null || true
+        mkdir -p "$TOR_DATA"
+        chown "$TOR_USER:staff" "$TOR_DATA"
+        chmod 700 "$TOR_DATA"
+        mkdir -p "$BREW_PREFIX/var/log/tor"
+        chown "$TOR_USER:staff" "$BREW_PREFIX/var/log/tor"
+        chmod 755 "$BREW_PREFIX/var/log/tor"
+        TOR_BIN="$BREW_PREFIX/opt/tor/bin/tor"
+
+        print_info "Using Tor binary: $TOR_BIN"
+        print_info "Using Tor config: $TOR_CONFIG"
+        print_info "Running Tor as user: $TOR_USER"
+
+        if ! pgrep -u "$TOR_USER" -x "tor" > /dev/null 2>&1; then
+            print_warning "Tor is not running. Starting it..."
+
+            rm -f /tmp/tor.log
+
+            if [ -f "$TOR_BIN" ]; then
+                if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                    su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup $TOR_BIN --defaults-torrc $TOR_CONFIG > /tmp/tor.log 2>&1 &"
+                else
+                    touch /tmp/tor.log
+                    nohup "$TOR_BIN" --defaults-torrc "$TOR_CONFIG" > /tmp/tor.log 2>&1 &
+                fi
+                sleep 3
+            else
+                if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                    su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $TOR_CONFIG > /tmp/tor.log 2>&1 &"
+                else
+                    touch /tmp/tor.log
+                    nohup tor --defaults-torrc "$TOR_CONFIG" > /tmp/tor.log 2>&1 &
+                fi
+                sleep 3
+            fi
+
+            if pgrep -u "$TOR_USER" -x "tor" > /dev/null 2>&1; then
+                print_status "Tor started successfully"
+            else
+                print_error "Failed to start Tor. Check /tmp/tor.log for details."
+                cat /tmp/tor.log 2>/dev/null | tail -10
+                exit 1
+            fi
+        else
+            print_status "Tor is already running"
+        fi
+    else
+        if ! pgrep -x "tor" > /dev/null 2>&1; then
+            print_warning "Tor is not running. Starting it..."
+            nohup tor > /tmp/tor.log 2>&1 &
+            sleep 3
+            if pgrep -x "tor" > /dev/null 2>&1; then
+                print_status "Tor started successfully"
+            else
+                print_error "Failed to start Tor. Check /tmp/tor.log for details."
+                exit 1
+            fi
+        else
+            print_status "Tor is already running"
+        fi
     fi
-    
-    systemctl enable tor 2>/dev/null
-    
+
     print_status "Tor service is running"
 }
 
@@ -120,7 +219,36 @@ create_tor_config() {
     if [ ! -f "$TOR_CONFIG" ]; then
         print_warning "Tor configuration file not found. Creating default config..."
         mkdir -p "$(dirname "$TOR_CONFIG")"
-        cat > "$TOR_CONFIG" << EOF
+
+        if command -v brew &> /dev/null; then
+            BREW_PREFIX=$(brew --prefix 2>/dev/null)
+            if [ -z "$BREW_PREFIX" ]; then
+                BREW_PREFIX="/usr/local"
+            fi
+            cat > "$TOR_CONFIG" << EOF
+# Tor configuration file
+# Generated by OnionHoster
+
+# Basic Tor settings
+SocksPort 9050
+DataDirectory $BREW_PREFIX/var/lib/tor
+PidFile $BREW_PREFIX/var/lib/tor/tor.pid
+
+# Network settings
+AutomapHostsOnResolve 1
+AvoidDiskWrites 1
+
+# Hidden service settings
+HiddenServiceVersion 3
+
+# Logging
+Log notice file $BREW_PREFIX/var/log/tor/notices.log
+Log info file $BREW_PREFIX/var/log/tor/info.log
+
+# Hidden service configurations will be added here
+EOF
+        else
+            cat > "$TOR_CONFIG" << EOF
 # Tor configuration file
 # Generated by OnionHoster
 
@@ -142,40 +270,69 @@ Log info file /var/log/tor/info.log
 
 # Hidden service configurations will be added here
 EOF
+        fi
     fi
-    
+
     if command -v getent &> /dev/null; then
         TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
         TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
-        
+
         if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
             chown "$TOR_USER_ID:$TOR_GROUP_ID" "$TOR_CONFIG" 2>/dev/null || true
         fi
     fi
     chmod 644 "$TOR_CONFIG"
-    
-    mkdir -p /var/log/tor
-    if command -v getent &> /dev/null; then
-        TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
-        TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
-        
-        if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
-            chown "$TOR_USER_ID:$TOR_GROUP_ID" /var/log/tor 2>/dev/null || true
+
+    if command -v brew &> /dev/null; then
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        mkdir -p "$BREW_PREFIX/var/log/tor"
+        if command -v getent &> /dev/null; then
+            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                chown "$TOR_USER_ID:$TOR_GROUP_ID" "$BREW_PREFIX/var/log/tor" 2>/dev/null || true
+            fi
+        fi
+        chmod 755 "$BREW_PREFIX/var/log/tor"
+
+        mkdir -p "$SERVICE_DIR"
+        if command -v getent &> /dev/null; then
+            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_DIR" 2>/dev/null || true
+                chmod 700 "$SERVICE_DIR" 2>/dev/null || true
+            fi
+        fi
+    else
+        mkdir -p /var/log/tor
+        if command -v getent &> /dev/null; then
+            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                chown "$TOR_USER_ID:$TOR_GROUP_ID" /var/log/tor 2>/dev/null || true
+            fi
+        fi
+        chmod 755 /var/log/tor
+
+        mkdir -p "$SERVICE_DIR"
+        if command -v getent &> /dev/null; then
+            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_DIR" 2>/dev/null || true
+                chmod 700 "$SERVICE_DIR" 2>/dev/null || true
+            fi
         fi
     fi
-    chmod 755 /var/log/tor
-    
-    mkdir -p "$SERVICE_DIR"
-    if command -v getent &> /dev/null; then
-        TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
-        TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
-        
-        if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
-            chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_DIR" 2>/dev/null || true
-            chmod 700 "$SERVICE_DIR" 2>/dev/null || true
-        fi
-    fi
-    
+
     print_status "Tor configuration created successfully"
 }
 
@@ -353,15 +510,35 @@ EOF
     fi
     
     print_info "Creating Tor hidden service directory: $SERVICE_PATH"
-    mkdir -p "$SERVICE_PATH"
-    
-    if command -v getent &> /dev/null; then
-        TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
-        TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
-        
-        if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
-            chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_PATH"
+
+    if command -v brew &> /dev/null; then
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER=$(whoami)
+        fi
+
+        rm -rf "$SERVICE_PATH"
+        if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+            su - "$SUDO_USER" -c "mkdir -p '$SERVICE_PATH' && chmod 700 '$SERVICE_PATH'"
+        else
+            mkdir -p "$SERVICE_PATH"
             chmod 700 "$SERVICE_PATH"
+        fi
+    else
+        mkdir -p "$SERVICE_PATH"
+
+        if command -v getent &> /dev/null; then
+            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_PATH"
+                chmod 700 "$SERVICE_PATH"
+            fi
         fi
     fi
     
@@ -369,12 +546,43 @@ EOF
     add_hidden_service_to_torrc "$PORT"
     
     print_info "Restarting Tor service..."
-    systemctl restart tor 2>/dev/null || {
-        print_error "Failed to restart Tor service"
-        kill $HTTP_PID 2>/dev/null || true
-        read -p "Press Enter to continue..."
-        return
-    }
+    if command -v systemctl &> /dev/null; then
+        systemctl restart tor 2>/dev/null || {
+            print_error "Failed to restart Tor service"
+            kill $HTTP_PID 2>/dev/null || true
+            read -p "Press Enter to continue..."
+            return
+        }
+    else
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER=$(whoami)
+        fi
+
+        pkill -u "$TOR_USER" -x tor 2>/dev/null || true
+        sleep 1
+        rm -f /tmp/tor.log
+        if [ -f "$BREW_PREFIX/opt/tor/bin/tor" ]; then
+            if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup $BREW_PREFIX/opt/tor/bin/tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+            else
+                touch /tmp/tor.log
+                nohup "$BREW_PREFIX/opt/tor/bin/tor" --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+            fi
+        else
+            if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+            else
+                touch /tmp/tor.log
+                nohup tor --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+            fi
+        fi
+        sleep 3
+    fi
     
     print_info "Waiting for Tor hidden service to initialize and generate hostname..."
     
@@ -462,13 +670,33 @@ stop_service() {
     rm -rf /tmp/nginx_*
     
     print_status "Web servers stopped and cleaned up"
-    
+
     cleanup_torrc
-    
+
     rm -rf "$SERVICE_PATH"
-    
-    systemctl restart tor 2>/dev/null || true
-    
+
+    if command -v systemctl &> /dev/null; then
+        systemctl restart tor 2>/dev/null || true
+    else
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER=$(whoami)
+        fi
+        pkill -u "$TOR_USER" -x tor 2>/dev/null || true
+        sleep 1
+        rm -f /tmp/tor.log
+        if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+            su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+        else
+            touch /tmp/tor.log
+            nohup tor --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+        fi
+    fi
+
     print_status "Hidden service stopped and removed"
     read -p "Press Enter to continue..."
 }
@@ -536,11 +764,42 @@ forward_port() {
     add_hidden_service_to_torrc "$TARGET_PORT"
     
     print_info "Restarting Tor service with new port forwarding..."
-    systemctl restart tor 2>/dev/null || {
-        print_error "Failed to restart Tor service"
-        read -p "Press Enter to continue..."
-        return
-    }
+    if command -v systemctl &> /dev/null; then
+        systemctl restart tor 2>/dev/null || {
+            print_error "Failed to restart Tor service"
+            read -p "Press Enter to continue..."
+            return
+        }
+    else
+        BREW_PREFIX=$(brew --prefix 2>/dev/null)
+        if [ -z "$BREW_PREFIX" ]; then
+            BREW_PREFIX="/usr/local"
+        fi
+        TOR_USER="$SUDO_USER"
+        if [ -z "$TOR_USER" ]; then
+            TOR_USER=$(whoami)
+        fi
+
+        pkill -u "$TOR_USER" -x tor 2>/dev/null || true
+        sleep 1
+        rm -f /tmp/tor.log
+        if [ -f "$BREW_PREFIX/opt/tor/bin/tor" ]; then
+            if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup $BREW_PREFIX/opt/tor/bin/tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+            else
+                touch /tmp/tor.log
+                nohup "$BREW_PREFIX/opt/tor/bin/tor" --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+            fi
+        else
+            if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+            else
+                touch /tmp/tor.log
+                nohup tor --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+            fi
+        fi
+        sleep 3
+    fi
     
     print_status "Port forwarding configured successfully!"
     echo ""
@@ -623,12 +882,31 @@ restore_service() {
         
         if [ -d "$TEMP_DIR" ]; then
             cp -r "$TEMP_DIR"/* "$SERVICE_DIR/"
-            chown -R "$TOR_USER:$TOR_GROUP" "$SERVICE_DIR"
+            chown -R "$TOR_USER:$TOR_GROUP" "$SERVICE_DIR" 2>/dev/null || true
             chmod -R 700 "$SERVICE_DIR"
 
-            
-            systemctl restart tor 2>/dev/null || true
-            
+            if command -v systemctl &> /dev/null; then
+                systemctl restart tor 2>/dev/null || true
+            else
+                BREW_PREFIX=$(brew --prefix 2>/dev/null)
+                if [ -z "$BREW_PREFIX" ]; then
+                    BREW_PREFIX="/usr/local"
+                fi
+                TOR_USER="$SUDO_USER"
+                if [ -z "$TOR_USER" ]; then
+                    TOR_USER=$(whoami)
+                fi
+                pkill -u "$TOR_USER" -x tor 2>/dev/null || true
+                sleep 1
+                rm -f /tmp/tor.log
+                if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                    su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+                else
+                    touch /tmp/tor.log
+                    nohup tor --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+                fi
+            fi
+
             print_status "Tor domain restored successfully"
         else
             print_error "Failed to extract backup"
@@ -846,27 +1124,74 @@ refresh_tor_url() {
         print_info "Removing old service configuration..."
         rm -rf "$SERVICE_PATH"
 
-        
-        mkdir -p "$SERVICE_PATH"
+        if command -v brew &> /dev/null; then
+            BREW_PREFIX=$(brew --prefix 2>/dev/null)
+            if [ -z "$BREW_PREFIX" ]; then
+                BREW_PREFIX="/usr/local"
+            fi
+            TOR_USER="$SUDO_USER"
+            if [ -z "$TOR_USER" ]; then
+                TOR_USER=$(whoami)
+            fi
 
-        
-        if command -v getent &> /dev/null; then
-            TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
-            TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
-            
-            if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
-                chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_PATH"
+            if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                su - "$SUDO_USER" -c "mkdir -p '$SERVICE_PATH' && chmod 700 '$SERVICE_PATH'"
+            else
+                mkdir -p "$SERVICE_PATH"
                 chmod 700 "$SERVICE_PATH"
+            fi
+        else
+            mkdir -p "$SERVICE_PATH"
+
+            if command -v getent &> /dev/null; then
+                TOR_USER_ID=$(getent passwd "$TOR_USER" | cut -d: -f3 2>/dev/null)
+                TOR_GROUP_ID=$(getent group "$TOR_GROUP" | cut -d: -f3 2>/dev/null)
+
+                if [ -n "$TOR_USER_ID" ] && [ -n "$TOR_GROUP_ID" ]; then
+                    chown "$TOR_USER_ID:$TOR_GROUP_ID" "$SERVICE_PATH"
+                    chmod 700 "$SERVICE_PATH"
+                fi
             fi
         fi
 
         
         print_info "Restarting Tor service to generate new URL..."
-        systemctl restart tor 2>/dev/null || {
-            print_error "Failed to restart Tor service"
-            read -p "Press Enter to continue..."
-            return
-        }
+        if command -v systemctl &> /dev/null; then
+            systemctl restart tor 2>/dev/null || {
+                print_error "Failed to restart Tor service"
+                read -p "Press Enter to continue..."
+                return
+            }
+        else
+            BREW_PREFIX=$(brew --prefix 2>/dev/null)
+            if [ -z "$BREW_PREFIX" ]; then
+                BREW_PREFIX="/usr/local"
+            fi
+            TOR_USER="$SUDO_USER"
+            if [ -z "$TOR_USER" ]; then
+                TOR_USER=$(whoami)
+            fi
+
+            pkill -u "$TOR_USER" -x tor 2>/dev/null || true
+            sleep 1
+            rm -f /tmp/tor.log
+            if [ -f "$BREW_PREFIX/opt/tor/bin/tor" ]; then
+                if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                    su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup $BREW_PREFIX/opt/tor/bin/tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+                else
+                    touch /tmp/tor.log
+                    nohup "$BREW_PREFIX/opt/tor/bin/tor" --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+                fi
+            else
+                if [[ $EUID -eq 0 ]] && [ -n "$SUDO_USER" ]; then
+                    su - "$SUDO_USER" -c "touch /tmp/tor.log && nohup tor --defaults-torrc $BREW_PREFIX/etc/tor/torrc > /tmp/tor.log 2>&1 &"
+                else
+                    touch /tmp/tor.log
+                    nohup tor --defaults-torrc "$BREW_PREFIX/etc/tor/torrc" > /tmp/tor.log 2>&1 &
+                fi
+            fi
+            sleep 3
+        fi
 
         
         print_info "Waiting for new hostname file to be generated..."

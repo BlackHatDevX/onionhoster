@@ -3,392 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OnionHoster - Professional Tor Hidden Service Hosting</title>
+    <title>OnionHoster</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Courier New', monospace;
-            background: #000;
-            color: #00ff00;
-            overflow-x: hidden;
-            position: relative;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        /* Matrix rain effect */
-        .matrix-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            opacity: 0.1;
-        }
-        
-        .matrix-rain {
-            position: absolute;
-            color: #00ff00;
-            font-size: 14px;
-            font-family: monospace;
-            animation: matrix-fall 3s linear infinite;
-        }
-        
-        @keyframes matrix-fall {
-            0% { transform: translateY(-100vh); opacity: 1; }
-            100% { transform: translateY(100vh); opacity: 0; }
-        }
-        
+
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .header {
             text-align: center;
-            margin-bottom: 40px;
-            border: 2px solid #00ff00;
-            padding: 30px;
-            background: rgba(0, 0, 0, 0.8);
-            box-shadow: 0 0 20px #00ff00;
+            padding: 60px 40px;
+            max-width: 600px;
         }
-        
-        .header h1 {
-            font-size: 3.5rem;
-            margin-bottom: 15px;
-            text-shadow: 0 0 10px #00ff00;
-            letter-spacing: 3px;
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .header p {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            color: #00aa00;
+
+        .logo svg {
+            width: 40px;
+            height: 40px;
+            fill: #fff;
         }
-        
-        .warning-section {
-            background: rgba(255, 0, 0, 0.1);
-            border: 2px solid #ff0000;
-            padding: 25px;
-            margin: 30px 0;
-            border-radius: 5px;
-            box-shadow: 0 0 15px #ff0000;
-        }
-        
-        .warning-section h2 {
-            color: #ff0000;
-            margin-bottom: 15px;
-            font-size: 1.8rem;
-            text-align: center;
-        }
-        
-        .warning-section p {
-            color: #ff6666;
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-        
-        .warning-section ul {
-            color: #ff6666;
-            margin-left: 20px;
-        }
-        
-        .warning-section li {
-            margin-bottom: 8px;
-        }
-        
-        .main-content {
-            background: rgba(0, 20, 0, 0.9);
-            border: 2px solid #00ff00;
-            padding: 40px;
-            border-radius: 5px;
-            box-shadow: 0 0 25px #00ff00;
-            margin-bottom: 30px;
-        }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
-        }
-        
-        .feature-card {
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #00ff00;
-            padding: 25px;
-            border-radius: 5px;
-            box-shadow: 0 0 15px #00ff00;
-            transition: all 0.3s ease;
-        }
-        
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0 25px #00ff00;
-            background: rgba(0, 20, 0, 0.9);
-        }
-        
-        .feature-card h3 {
-            color: #00ff00;
-            margin-bottom: 15px;
-            font-size: 1.4rem;
-            border-bottom: 1px solid #00ff00;
-            padding-bottom: 10px;
-        }
-        
-        .feature-card p {
-            line-height: 1.6;
-            color: #00aa00;
-        }
-        
-        .github-section {
-            text-align: center;
-            margin: 40px 0;
-            padding: 30px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #00ff00;
-            border-radius: 5px;
-        }
-        
-        .github-section h2 {
-            margin-bottom: 20px;
-            font-size: 2rem;
-            color: #00ff00;
-        }
-        
-        .github-section p {
-            margin-bottom: 25px;
-            font-size: 1.1rem;
-            color: #00aa00;
-        }
-        
-        .github-btn {
-            display: inline-block;
-            background: #000;
-            color: #00ff00;
-            padding: 15px 30px;
-            text-decoration: none;
-            border: 2px solid #00ff00;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px #00ff00;
-        }
-        
-        .github-btn:hover {
-            background: #00ff00;
-            color: #000;
-            box-shadow: 0 0 25px #00ff00;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 40px 0;
-        }
-        
-        .stat-card {
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #00ff00;
-            color: #00ff00;
-            padding: 25px;
-            border-radius: 5px;
-            text-align: center;
-            box-shadow: 0 0 15px #00ff00;
-        }
-        
-        .stat-card h3 {
+
+        h1 {
             font-size: 2.5rem;
+            font-weight: 600;
             margin-bottom: 10px;
-            color: #00ff00;
+            color: #222;
         }
-        
-        .stat-card p {
-            opacity: 0.9;
+
+        .tagline {
             font-size: 1.1rem;
-            color: #00aa00;
+            color: #666;
+            margin-bottom: 40px;
         }
-        
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .card p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .card code {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+        }
+
         .footer {
-            text-align: center;
-            margin-top: 50px;
-            color: #00aa00;
-            opacity: 0.8;
-            border-top: 1px solid #00ff00;
-            padding-top: 20px;
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 30px;
         }
-        
+
         .footer a {
-            color: #00ff00;
+            color: #666;
             text-decoration: none;
         }
-        
+
         .footer a:hover {
             text-decoration: underline;
-            text-shadow: 0 0 10px #00ff00;
-        }
-        
-        .terminal-text {
-            font-family: 'Courier New', monospace;
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #00ff00;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-            color: #00ff00;
-        }
-        
-        
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2.5rem;
-            }
-            
-            .main-content {
-                padding: 20px;
-            }
-            
-            .features {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
 <body>
-    <!-- Matrix rain background -->
-    <div class="matrix-bg" id="matrix-bg"></div>
-    
     <div class="container">
-        <div class="header">
-            <h1>🧅 ONIONHOSTER</h1>
-            <p>PROFESSIONAL TOR HIDDEN SERVICE HOSTING PLATFORM</p>
+        <div class="logo">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 4c-4.42 0-8 3.58-8 8 0 1.85.63 3.55 1.69 4.9L4 17l2.5-2.5L8 17c1.35-1.06 3.05-1.69 4.9-1.69 4.42 0 8-3.58 8-8s-3.58-8-8-8z"/>
+                <path d="M12 6l-2 2-2-2 2-2 2 2z"/>
+            </svg>
         </div>
-        
-        <div class="warning-section">
-            <h2>⚠️ SECURITY WARNING ⚠️</h2>
-            <p><strong>This is a professional cybersecurity tool. Use responsibly and legally.</strong></p>
-            <ul>
-                <li>Only host content you own or have explicit permission to host</li>
-                <li>Ensure compliance with local laws and regulations</li>
-                <li>Maintain proper security practices and regular updates</li>
-                <li>Monitor your services for unauthorized access attempts</li>
-                <li>Keep your Tor service keys secure and backed up</li>
-            </ul>
-            <p><strong>By using OnionHoster, you acknowledge responsibility for your hosted content.</strong></p>
+
+        <h1>OnionHoster</h1>
+        <p class="tagline">Tor Hidden Service Hosting</p>
+
+        <div class="card">
+            <p>Your service is now live on the Tor network.</p>
+            <p>Run <code>sudo bash onionhoster.sh</code> to manage your hidden service.</p>
         </div>
-        
-        <div class="main-content">
-            <div class="features">
-                <div class="feature-card">
-                    <h3>ENTERPRISE SECURITY</h3>
-                    <p>Military-grade encryption and security protocols. Built-in permission management and secure key generation.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>PROFESSIONAL HOSTING</h3>
-                    <p>Apache/Nginx web servers with enterprise-grade performance. Custom configurations and advanced logging.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>ADVANCED BACKUP</h3>
-                    <p>Comprehensive backup and restore systems with encryption. Automated backup scheduling and integrity verification.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>DOMAIN ROTATION</h3>
-                    <p>Advanced onion address rotation with cryptographic key regeneration. Maintains service continuity during updates.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>CROSS-PLATFORM</h3>
-                    <p>Native support for Debian/Ubuntu, CentOS/RHEL, Arch Linux, and macOS. Optimized for each platform.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>AUTO-UPDATES</h3>
-                    <p>Secure automatic updates from official repository. Version control and rollback capabilities.</p>
-                </div>
-            </div>
-            
-            <div class="terminal-text">
-                sudo ./onionhoster.sh 
-            </div>
-            
-            <div class="github-section">
-                <h2>OPEN SOURCE INTELLIGENCE</h2>
-                <p>OnionHoster is a professional-grade open source project. Contribute to cybersecurity advancement.</p>
-                <a href="https://github.com/BlackHatDevX/onionhoster" class="github-btn" target="_blank">
-                    📂 VIEW ON GITHUB
-                </a>
-            </div>
-        </div>
-        
+
         <div class="footer">
-            <p>Developed by <a href="https://github.com/BlackHatDevX" target="_blank">BlackHatDevX</a></p>
-            <p>Powered by Tor Network | Enterprise Security | Professional Hosting</p>
+            <a href="https://github.com/BlackHatDevX/onionhoster">GitHub</a>
         </div>
     </div>
-    
-    <script>
-        // Matrix rain effect
-        function createMatrixRain() {
-            const matrixBg = document.getElementById('matrix-bg');
-            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
-            
-            for (let i = 0; i < 50; i++) {
-                setTimeout(() => {
-                    const rain = document.createElement('div');
-                    rain.className = 'matrix-rain';
-                    rain.style.left = Math.random() * 100 + '%';
-                    rain.style.animationDelay = Math.random() * 3 + 's';
-                    rain.style.animationDuration = (Math.random() * 2 + 2) + 's';
-                    
-                    let text = '';
-                    for (let j = 0; j < 20; j++) {
-                        text += characters.charAt(Math.floor(Math.random() * characters.length)) + '<br>';
-                    }
-                    rain.innerHTML = text;
-                    
-                    matrixBg.appendChild(rain);
-                    
-                    // Remove after animation
-                    setTimeout(() => {
-                        if (rain.parentNode) {
-                            rain.parentNode.removeChild(rain);
-                        }
-                    }, 5000);
-                }, i * 100);
-            }
-        }
-        
-        // Start matrix rain
-        createMatrixRain();
-        setInterval(createMatrixRain, 5000);
-        
-        // Terminal typing effect
-        const terminalText = document.querySelector('.terminal-text');
-        const originalText = terminalText.innerHTML;
-        terminalText.innerHTML = '';
-        
-        let i = 0;
-        function typeWriter() {
-            if (i < originalText.length) {
-                terminalText.innerHTML += originalText.charAt(i);
-                i++;
-                setTimeout(typeWriter, 50);
-            }
-        }
-        
-        setTimeout(typeWriter, 1000);
-    </script>
 </body>
 </html>
