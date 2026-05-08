@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/BlackHatDevX/onionhoster/master/.github/logo.png" alt="OnionHoster" width="200">
+ <img width="923" height="451" alt="onionhoster" src="https://github.com/user-attachments/assets/92b6e834-2d4f-4cc7-8f77-82b9bafba8a5" />
 </p>
 
-<h1 align="center">OnionHoster</h1>
+<h1 align="center">OnionHoster v2.5</h1>
 
 <p align="center">
   Deploy any web project as a Tor hidden service in minutes.<br>
